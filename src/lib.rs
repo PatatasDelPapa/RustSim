@@ -26,10 +26,11 @@ pub enum Action {
 
 use either::Either::*;
 impl Action {
+    #[inline]
     pub fn activate_one(key: Key) -> Self {
         Action::Activate(Left(key))
     }
-
+    #[inline]
     pub fn activate_many(keys: Vec<Key>) -> Self {
         Action::Activate(Right(keys))
     }

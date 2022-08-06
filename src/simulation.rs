@@ -32,6 +32,7 @@ where
     R: 'static,
 {
     /// Add an already constructed Generator into the simulation.
+    #[inline]
     pub fn add_generator(&mut self, gen: GenBoxed<R>) -> Key {
         let key = self.components.add_generator(gen);
         key
@@ -40,6 +41,7 @@ where
     /// Schedules `event` to be executed for `component_key` at `self.time() + time`.
     /// component_key is a key corresponding to the component to be scheduled.
     /// resume_with is a key to access the list of permited components capable of being Activated by this component.
+    #[inline]
     pub fn schedule(&mut self, time: Duration, component_key: Key) {
         self.scheduler.schedule(time, component_key)
     }
@@ -48,6 +50,7 @@ where
     ///
     /// the `component_key` argument is a [`Key`](crate::key::Key) corresponding to the [Component](crate::component::Component) to be scheduled.
     /// `resume_with` is a [`StateKey`](crate::key::StateKey) used access the list of permited components to be Activated by the `component`
+    #[inline]
     pub fn schedule_now(&mut self, component_key: Key) {
         self.scheduler.schedule_now(component_key)
     }
@@ -72,7 +75,9 @@ where
             //     let state = self.components.step(key, resume_with);
             //     ShouldContinue::Advance(state, key)
             // }
-
+            
+            // TODO: Make this also return the &mut ComponentState of the generator.
+            // And benchmark the change by deleting the get_component_state calls
             let state = self.components.step_with(key, resume_with);
             ShouldContinue::Advance(state, key)
         } else {
@@ -83,11 +88,13 @@ where
     
     /// Returns the current simulation time.
     #[must_use]
+    #[inline]
     pub fn time(&self) -> Duration {
         self.scheduler.time()
     }
 
     #[must_use]
+    #[inline]
     pub fn clock(&self) -> crate::scheduler::ClockRef {
         self.scheduler.clock()
     }
@@ -106,7 +113,8 @@ where
         match state {
             GeneratorState::Yielded(yielded_value) => match yielded_value {
                 Action::Hold(duration) => {
-                    let component_state = self.components.get_state_mut(key)
+                    // TODO: Eliminate this line by having this data as a parameter of the function.
+                    let component_state: &mut ComponentState = self.components.get_state_mut(key)
                         .expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
                     
                     if let ComponentState::Passivated = *component_state {
@@ -116,6 +124,7 @@ where
                     self.schedule(duration, key);
                 }
                 Action::Passivate => {
+                    // TODO: Eliminate this line by having this data as a parameter of the function.
                     let component_state = self
                             .components
                             .get_state_mut(key)
@@ -177,6 +186,7 @@ where
 }
 
 impl Simulation<()> {
+    #[inline]
     pub fn step(&mut self) -> ShouldContinue {
         self.step_with(())
     }
