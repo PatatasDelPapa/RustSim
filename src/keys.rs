@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Key {
     // ID 0 and 1 are reserved for no_component and end_simulation.
@@ -16,6 +14,11 @@ impl Key {
     /// Return the ID of the component this key correspond
     pub fn id(self) -> usize {
         self.id
+    }
+
+    #[allow(dead_code)]
+    pub fn dummy() -> Self {
+        Self { id: usize::MAX }
     }
 }
 

@@ -1,7 +1,7 @@
 use std::ops::GeneratorState;
 use std::time::Duration;
 
-use crate::container::{Container, ComponentState};
+use crate::container::{ComponentState, Container};
 use crate::scheduler::Scheduler;
 use crate::{Action, GenBoxed, Key};
 
@@ -75,7 +75,7 @@ where
             //     let state = self.components.step(key, resume_with);
             //     ShouldContinue::Advance(state, key)
             // }
-            
+
             // TODO: Make this also return the &mut ComponentState of the generator.
             // And benchmark the change by deleting the get_component_state calls
             let state = self.components.step_with(key, resume_with);
@@ -85,7 +85,6 @@ where
         }
     }
 
-    
     /// Returns the current simulation time.
     #[must_use]
     #[inline]
@@ -116,9 +115,12 @@ where
                     // TODO: Eliminate this line by having this data as a parameter of the function.
                     let component_state: &mut ComponentState = self.components.get_state_mut(key)
                         .expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
-                    
+
                     if let ComponentState::Passivated = *component_state {
-                        panic!("A Passivated component received a hold command. ID = {}", key.id);
+                        panic!(
+                            "A Passivated component received a hold command. ID = {}",
+                            key.id
+                        );
                     }
 
                     self.schedule(duration, key);
@@ -126,57 +128,55 @@ where
                 Action::Passivate => {
                     // TODO: Eliminate this line by having this data as a parameter of the function.
                     let component_state = self
-                            .components
-                            .get_state_mut(key)
-                            .expect("Se intento conseguir un state de un componente que no existe");
+                        .components
+                        .get_state_mut(key)
+                        .expect("Se intento conseguir un state de un componente que no existe");
                     match *component_state {
                         ComponentState::Passivated => {
-                            panic!("A Passivated component received a passivate command. ID = {}", key.id);
-                        },
+                            panic!(
+                                "A Passivated component received a passivate command. ID = {}",
+                                key.id
+                            );
+                        }
                         ComponentState::Active => {
                             *component_state = ComponentState::Passivated;
-                        },
+                        }
                     }
-                },
-                Action::Activate(component) => {
-                    use crate::either::Either::*;
-                    match component {
-                        Left(component) => {
-                            let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
-                            match *component_state {
-                                ComponentState::Passivated => {
-                                    *component_state = ComponentState::Active;
-                                },
-                                ComponentState::Active => {
-                                    panic!(
-                                        "An attempt was made to activate an already active component. ID = {}",
-                                        component.id
-                                    )
-                                },
-                            }
-                            self.schedule_now(key);
-                            self.schedule_now(component);
-                        },
-                        Right(vec_of_components) => {
-                            self.schedule_now(key);
-                            for component in vec_of_components {
-                                let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
-                                match *component_state {
-                                    ComponentState::Passivated => {
-                                        *component_state = ComponentState::Active;
-                                    },
-                                    ComponentState::Active => {
-                                        panic!(
-                                            "An attempt was made to activate an already active component. ID = {}",
-                                            component.id
-                                        );
-                                    },
-                                }
-                                self.schedule_now(component);
-                            }
-                        },
+                }
+                Action::ActivateOne(component) => {
+                    let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
+                    match *component_state {
+                        ComponentState::Passivated => {
+                            *component_state = ComponentState::Active;
+                        }
+                        ComponentState::Active => {
+                            panic!(
+                                "An attempt was made to activate an already active component. ID = {}",
+                                component.id
+                            )
+                        }
                     }
-                },
+                    self.schedule_now(key);
+                    self.schedule_now(component);
+                }
+                Action::ActivateMany(vec_of_components) => {
+                    self.schedule_now(key);
+                    for component in vec_of_components {
+                        let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
+                        match *component_state {
+                            ComponentState::Passivated => {
+                                *component_state = ComponentState::Active;
+                            }
+                            ComponentState::Active => {
+                                panic!(
+                                    "An attempt was made to activate an already active component. ID = {}",
+                                    component.id
+                                );
+                            }
+                        }
+                        self.schedule_now(component);
+                    }
+                }
             },
             GeneratorState::Complete(_) => {
                 // TODO: Remove the generator from the Vec not shrinking the vec.

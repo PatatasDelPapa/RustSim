@@ -68,6 +68,7 @@ where
     //     while let genawaiter::GeneratorState::Yielded(_) = gen.resume_with(resume_with) {}
     // }
 
+    #[allow(dead_code)]
     pub fn remove(&mut self, key: Key) -> Option<(GenBoxed<R>, ComponentState)> {
         if self.inner.get(key.id).is_some() {
             self.inner[key.id].take()
@@ -79,11 +80,13 @@ where
     }
 
     /// Returns the number of elements in the container.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Returns `true` if the container contains no elements.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
@@ -143,6 +146,7 @@ where
 }
 
 impl Container<()> {
+    #[allow(dead_code)]
     pub fn step(&mut self, key: Key) -> GeneratorState<Action, ()> {
         self.step_with(key, ())
     }

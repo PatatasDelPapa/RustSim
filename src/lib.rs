@@ -2,14 +2,12 @@
 // use std::cell::Cell;
 
 mod container;
-mod either;
 mod keys;
 mod scheduler;
 mod simulation;
 
 use std::{ops::Generator, time::Duration};
 
-pub use either::Either;
 pub use keys::Key;
 pub use simulation::Simulation;
 
@@ -21,18 +19,18 @@ pub type GenBoxed<R> = Box<dyn Generator<R, Yield = Action, Return = ()> + Unpin
 pub enum Action {
     Hold(Duration),
     Passivate,
-    Activate(Either<Key, Vec<Key>>),
+    ActivateOne(Key),
+    ActivateMany(Vec<Key>),
 }
 
-use either::Either::*;
 impl Action {
     #[inline]
     pub fn activate_one(key: Key) -> Self {
-        Action::Activate(Left(key))
+        Action::ActivateOne(key)
     }
     #[inline]
     pub fn activate_many(keys: Vec<Key>) -> Self {
-        Action::Activate(Right(keys))
+        Action::ActivateMany(keys)
     }
 }
 
