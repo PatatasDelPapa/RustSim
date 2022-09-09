@@ -11,7 +11,7 @@ pub struct Simulation<R> {
 }
 
 pub enum ShouldContinue {
-    Advance(GeneratorState<Action, ()>, Key),
+    Advance,
     Break,
 }
 
@@ -79,7 +79,86 @@ where
             // TODO: Make this also return the &mut ComponentState of the generator.
             // And benchmark the change by deleting the get_component_state calls
             let state = self.components.step_with(key, resume_with);
-            ShouldContinue::Advance(state, key)
+            match state {
+                GeneratorState::Yielded(action) => {
+                    let component_state = self.components.get_state_mut(key).unwrap();
+                    match action {
+                        Action::Hold(duration) => {
+                            // TODO: Maybe remove this check. It shouldn't happen.
+                            if let ComponentState::Passivated = *component_state {
+                                panic!(
+                                    "A Passivated component received a hold command. ID = {}",
+                                    key.id
+                                );
+                            }
+                            self.schedule(duration, key);
+                        }
+                        Action::Passivate => {
+                            // TODO: This check also shouldn't happen, a passivated generator
+                            // shouldn't be able to send another passivate
+                            match *component_state {
+                                ComponentState::Active => {
+                                    *component_state = ComponentState::Passivated;
+                                }
+                                ComponentState::Passivated => {
+                                    panic!(
+                                        "A Passivated component received a passivate command. ID = {}",
+                                        key.id
+                                    );
+                                },
+                            }
+                        }
+                        Action::ActivateOne(other_key) => {
+                            // TODO: This check is also nonsensical a passivated generator
+                            // shouldn't be able to yield an activate.
+                            if let ComponentState::Passivated = *component_state {
+                                panic!("A passivated component sended an activate. ID = {}", key.id);
+                            }
+                            self.schedule_now(key);
+                            
+                            let other_state = self.components.get_state_mut(other_key).unwrap();
+                            match *other_state {
+                                ComponentState::Passivated => {
+                                    *other_state = ComponentState::Active;
+                                },
+                                ComponentState::Active => {
+                                    panic!(
+                                        "An attempt was made to activate an already active component. ID = {}",
+                                        other_key.id
+                                    )
+                                },
+                            }
+                            
+                            self.schedule_now(other_key);
+                        },
+                        Action::ActivateMany(other_keys) => {
+                            if let ComponentState::Passivated = *component_state {
+                                panic!("A passivated component sended an activate. ID = {}", key.id);
+                            }
+                            self.schedule_now(key);
+                            for other_key in other_keys {
+                                let other_state = self.components.get_state_mut(other_key).unwrap();
+                                match *other_state {
+                                    ComponentState::Passivated => {
+                                        *other_state = ComponentState::Active;
+                                    },
+                                    ComponentState::Active => {
+                                        panic!(
+                                            "An attempt was made to activate an already active component. ID = {}",
+                                            other_key.id
+                                        )
+                                    },
+                                }
+                                self.schedule_now(other_key);
+                            }
+                        },
+                    }
+                }
+                GeneratorState::Complete(_) => {
+                    self.components.remove(key);
+                }
+            }
+            ShouldContinue::Advance
         } else {
             ShouldContinue::Break
         }
@@ -108,81 +187,81 @@ where
         self.components.get_state(key).map(|&state| (key, state))
     }
 
-    fn run_one_step(&mut self, state: GeneratorState<Action, ()>, key: Key) {
-        match state {
-            GeneratorState::Yielded(yielded_value) => match yielded_value {
-                Action::Hold(duration) => {
-                    // TODO: Eliminate this line by having this data as a parameter of the function.
-                    let component_state: &mut ComponentState = self.components.get_state_mut(key)
-                        .expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
+    // fn run_one_step(&mut self, state: GeneratorState<Action, ()>, key: Key) {
+    //     match state {
+    //         GeneratorState::Yielded(yielded_value) => match yielded_value {
+    //             Action::Hold(duration) => {
+    //                 // TODO: Eliminate this line by having this data as a parameter of the function.
+    //                 let component_state: &mut ComponentState = self.components.get_state_mut(key)
+    //                     .expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
 
-                    if let ComponentState::Passivated = *component_state {
-                        panic!(
-                            "A Passivated component received a hold command. ID = {}",
-                            key.id
-                        );
-                    }
+    //                 if let ComponentState::Passivated = *component_state {
+    //                     panic!(
+    //                         "A Passivated component received a hold command. ID = {}",
+    //                         key.id
+    //                     );
+    //                 }
 
-                    self.schedule(duration, key);
-                }
-                Action::Passivate => {
-                    // TODO: Eliminate this line by having this data as a parameter of the function.
-                    let component_state = self
-                        .components
-                        .get_state_mut(key)
-                        .expect("Se intento conseguir un state de un componente que no existe");
-                    match *component_state {
-                        ComponentState::Passivated => {
-                            panic!(
-                                "A Passivated component received a passivate command. ID = {}",
-                                key.id
-                            );
-                        }
-                        ComponentState::Active => {
-                            *component_state = ComponentState::Passivated;
-                        }
-                    }
-                }
-                Action::ActivateOne(component) => {
-                    let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
-                    match *component_state {
-                        ComponentState::Passivated => {
-                            *component_state = ComponentState::Active;
-                        }
-                        ComponentState::Active => {
-                            panic!(
-                                "An attempt was made to activate an already active component. ID = {}",
-                                component.id
-                            )
-                        }
-                    }
-                    self.schedule_now(key);
-                    self.schedule_now(component);
-                }
-                Action::ActivateMany(vec_of_components) => {
-                    self.schedule_now(key);
-                    for component in vec_of_components {
-                        let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
-                        match *component_state {
-                            ComponentState::Passivated => {
-                                *component_state = ComponentState::Active;
-                            }
-                            ComponentState::Active => {
-                                panic!(
-                                    "An attempt was made to activate an already active component. ID = {}",
-                                    component.id
-                                );
-                            }
-                        }
-                        self.schedule_now(component);
-                    }
-                }
-            },
-            GeneratorState::Complete(_) => {
-                // TODO: Remove the generator from the Vec not shrinking the vec.
-            }
-        }
-    }
+    //                 self.schedule(duration, key);
+    //             }
+    //             Action::Passivate => {
+    //                 // TODO: Eliminate this line by having this data as a parameter of the function.
+    //                 let component_state = self
+    //                     .components
+    //                     .get_state_mut(key)
+    //                     .expect("Se intento conseguir un state de un componente que no existe");
+    //                 match *component_state {
+    //                     ComponentState::Passivated => {
+    //                         panic!(
+    //                             "A Passivated component received a passivate command. ID = {}",
+    //                             key.id
+    //                         );
+    //                     }
+    //                     ComponentState::Active => {
+    //                         *component_state = ComponentState::Passivated;
+    //                     }
+    //                 }
+    //             }
+    //             Action::ActivateOne(component) => {
+    //                 let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
+    //                 match *component_state {
+    //                     ComponentState::Passivated => {
+    //                         *component_state = ComponentState::Active;
+    //                     }
+    //                     ComponentState::Active => {
+    //                         panic!(
+    //                             "An attempt was made to activate an already active component. ID = {}",
+    //                             component.id
+    //                         )
+    //                     }
+    //                 }
+    //                 self.schedule_now(key);
+    //                 self.schedule_now(component);
+    //             }
+    //             Action::ActivateMany(vec_of_components) => {
+    //                 self.schedule_now(key);
+    //                 for component in vec_of_components {
+    //                     let component_state = self.components.get_state_mut(component).expect(&format!("An attempt was made to get the state of a component that does not exist.  Key.id = {}", key.id));
+    //                     match *component_state {
+    //                         ComponentState::Passivated => {
+    //                             *component_state = ComponentState::Active;
+    //                         }
+    //                         ComponentState::Active => {
+    //                             panic!(
+    //                                 "An attempt was made to activate an already active component. ID = {}",
+    //                                 component.id
+    //                             );
+    //                         }
+    //                     }
+    //                     self.schedule_now(component);
+    //                 }
+    //             }
+    //         },
+    //         GeneratorState::Complete(_) => {
+    //             // TODO: Remove the generator from the Vec not shrinking the vec.
+    //         }
+    //     }
+    // }
 }
 
 impl Simulation<()> {
@@ -191,18 +270,15 @@ impl Simulation<()> {
         self.step_with(())
     }
 
-    pub fn run(&mut self) {
-        while let ShouldContinue::Advance(state, key) = self.step() {
-            self.run_one_step(state, key);
-        }
+    pub fn run_until_empty(&mut self) {
+        while let ShouldContinue::Advance = self.step() {}
     }
 
     pub fn run_with_limit(&mut self, limit: Duration) {
-        while let ShouldContinue::Advance(state, key) = self.step() {
+        while let ShouldContinue::Advance = self.step() {
             if self.time() >= limit {
                 break;
             }
-            self.run_one_step(state, key);
         }
     }
 }
