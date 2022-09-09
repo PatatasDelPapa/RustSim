@@ -66,9 +66,8 @@ impl ClockRef {
 
 #[derive(Debug)]
 pub struct Scheduler {
-    events: BinaryHeap<(EventEntry, Reverse<u128>)>,
+    events: BinaryHeap<EventEntry>,
     clock: Clock,
-    next_id: u128,
 }
 
 impl Default for Scheduler {
@@ -76,7 +75,6 @@ impl Default for Scheduler {
         Self {
             events: BinaryHeap::default(),
             clock: Rc::new(Cell::new(Duration::ZERO)),
-            next_id: 0,
         }
     }
 }
@@ -89,8 +87,7 @@ impl Scheduler {
     pub fn schedule(&mut self, time: Duration, component: Key) {
         let time = self.time() + time;
         let event = EventEntry::new(time, component);
-        let next = self.get_new_id();
-        self.events.push((event, next));
+        self.events.push(event);
     }
 
     /// Schedules `event` to be executed for `component` at `self.time()`.
@@ -117,7 +114,7 @@ impl Scheduler {
 
     /// Removes and returns the next scheduled event or `None` if none are left.
     pub fn pop(&mut self) -> Option<EventEntry> {
-        self.events.pop().map(|(event, _)| {
+        self.events.pop().map(|event| {
             self.clock.replace(event.time.0);
             event
         })
@@ -127,17 +124,16 @@ impl Scheduler {
     // to break of ties based on the orden of insertion
     // the earliest to be inserted is the first to get out
     // if both EventEntry has the same time.
-    fn get_new_id(&mut self) -> Reverse<u128> {
-        self.next_id += 1;
-        Reverse(self.next_id)
-    }
+    // fn get_new_id(&mut self) -> Reverse<u128> {
+    //     self.next_id += 1;
+    //     Reverse(self.next_id)
+    // }
 
     // Private function to insert `EventEntry` for testing.
     // Not used in public API
     #[allow(dead_code)]
     fn insert(&mut self, event: EventEntry) {
-        let next = self.get_new_id();
-        self.events.push((event, next));
+        self.events.push(event);
     }
 }
 

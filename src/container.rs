@@ -23,7 +23,7 @@ pub enum ComponentState {
 
 pub struct Container<R> {
     // pub(crate) inner: Vec<Option<(BoxedComponent<R>, ComponentState)>>,
-    pub(crate) inner: Vec<Option<(GenBoxed<R>, ComponentState)>>,
+    pub(crate) inner: Vec<Option<GenBoxed<R>>>,
 }
 
 impl<R> Default for Container<R>
@@ -44,7 +44,7 @@ where
     pub fn add_generator(&mut self, gen: GenBoxed<R>) -> Key {
         let key = Key::new(self.inner.len());
         // let gen: BoxedComponent<R> = Box::new(gen);
-        self.inner.push(Some((gen, ComponentState::Active)));
+        self.inner.push(Some(gen));
         key
     }
 
@@ -68,15 +68,15 @@ where
     //     while let genawaiter::GeneratorState::Yielded(_) = gen.resume_with(resume_with) {}
     // }
 
-    #[allow(dead_code)]
-    pub fn remove(&mut self, key: Key) -> Option<(GenBoxed<R>, ComponentState)> {
-        if self.inner.get(key.id).is_some() {
-            self.inner[key.id].take()
-        } else {
-            None
-        }
+    pub fn remove(&mut self, key: Key) -> Option<GenBoxed<R>> {
+        // if self.inner.get(key.id).is_some() {
+        //     self.inner[key.id].take()
+        // } else {
+        //     None
+        // }
         // Another way of doing the above added in rust 1.62
         // self.inner.get(key.id).is_some().then_some(self.inner[key.id].take()).flatten()
+        self.inner.get_mut(key.id).and_then(Option::take)
     }
 
     /// Returns the number of elements in the container.
@@ -101,11 +101,12 @@ where
         // Esto asume que los eventos nunca son borrados.
         // TODO: Confirmar esta asumpción.
 
-        let &mut (ref mut gen, _) = self
+        let gen = self
             .inner
             .get_mut(key.id)
-            .map(Option::as_mut)
-            .flatten()
+            // .map(Option::as_mut)
+            // .flatten()
+            .and_then(Option::as_mut)
             .expect("components shouldn't be removed from the container");
 
         // gen.step(resume_with)
@@ -114,35 +115,35 @@ where
         // gen.resume_with(resume_with)
     }
 
-    #[must_use]
-    pub fn get_state(&self, key: Key) -> Option<&ComponentState> {
-        if let Some(values) = self.inner.get(key.id) {
-            values.as_ref().map(|(_, ref state)| state)
-        } else {
-            None
-        }
+    // #[must_use]
+    // pub fn get_state(&self, key: Key) -> Option<&ComponentState> {
+    //     if let Some(values) = self.inner.get(key.id) {
+    //         values.as_ref().map(|(_, ref state)| state)
+    //     } else {
+    //         None
+    //     }
 
-        // self.inner
-        //     .get(key.id)
-        //     .map(Option::as_ref)
-        //     .flatten()
-        //     .map(|&(_, ref state)| state)
-    }
+    //  // self.inner
+    //  //     .get(key.id)
+    //  //     .map(Option::as_ref)
+    //  //     .flatten()
+    //  //     .map(|&(_, ref state)| state)
+    // }
 
-    #[must_use]
-    pub fn get_state_mut(&mut self, key: Key) -> Option<&mut ComponentState> {
-        if let Some(value) = self.inner.get_mut(key.id) {
-            value.as_mut().map(|&mut (_, ref mut state)| state)
-        } else {
-            None
-        }
+    // #[must_use]
+    // pub fn get_state_mut(&mut self, key: Key) -> Option<&mut ComponentState> {
+    //     if let Some(value) = self.inner.get_mut(key.id) {
+    //         value.as_mut().map(|&mut (_, ref mut state)| state)
+    //     } else {
+    //         None
+    //     }
 
-        // self.inner
-        //     .get_mut(key.id)
-        //     .map(Option::as_mut)
-        //     .flatten()
-        //     .map(|&mut (_, ref mut state)| state)
-    }
+    //     // self.inner
+    //     //     .get_mut(key.id)
+    //     //     .map(Option::as_mut)
+    //     //     .flatten()
+    //     //     .map(|&mut (_, ref mut state)| state)
+    // }
 }
 
 impl Container<()> {
