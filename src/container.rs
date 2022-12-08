@@ -116,32 +116,32 @@ where
 
     #[must_use]
     pub fn get_state(&self, key: Key) -> Option<&ComponentState> {
-        if let Some(values) = self.inner.get(key.id) {
-            values.as_ref().map(|(_, ref state)| state)
-        } else {
-            None
-        }
+        // if let Some(values) = self.inner.get(key.id) {
+        //     values.as_ref().map(|(_, ref state)| state)
+        // } else {
+        //     None
+        // }
 
-        // self.inner
-        //     .get(key.id)
-        //     .map(Option::as_ref)
-        //     .flatten()
-        //     .map(|&(_, ref state)| state)
+        self.inner
+            .get(key.id)
+            .map(Option::as_ref)
+            .flatten()
+            .map(|&(_, ref state)| state)
     }
 
     #[must_use]
     pub fn get_state_mut(&mut self, key: Key) -> Option<&mut ComponentState> {
-        if let Some(value) = self.inner.get_mut(key.id) {
-            value.as_mut().map(|&mut (_, ref mut state)| state)
-        } else {
-            None
-        }
+        // if let Some(value) = self.inner.get_mut(key.id) {
+        //     value.as_mut().map(|&mut (_, ref mut state)| state)
+        // } else {
+        //     None
+        // }
 
-        // self.inner
-        //     .get_mut(key.id)
-        //     .map(Option::as_mut)
-        //     .flatten()
-        //     .map(|&mut (_, ref mut state)| state)
+        self.inner
+            .get_mut(key.id)
+            .map(Option::as_mut)
+            .flatten()
+            .map(|&mut (_, ref mut state)| state)
     }
 }
 

@@ -60,22 +60,6 @@ where
         if let Some(event_entry) = self.scheduler.pop() {
             let key = event_entry.key();
 
-            /* TODO:
-            En lugar de reiniciar la ejecución del componente con StateKey<Vec<(Key, ComponentState)>>
-            Revistar el estado actual (Passivated / Activated) de cada key
-            Y enviar ese resultado como una lista al generador junto con la llave
-            para que pueda hacerle Action::Activate(key) si es necesario
-            */
-
-            // if key.is_limit() {
-            //     info!("End Simulation Event recieved. Ending Simulation...");
-            //     ShouldContinue::Break
-            // } else {
-            //     trace!("An event from component ID = {}, at simulated time = {:?} was recieved, continuing simulation...", key.id, self.time());
-            //     let state = self.components.step(key, resume_with);
-            //     ShouldContinue::Advance(state, key)
-            // }
-
             // TODO: Make this also return the &mut ComponentState of the generator.
             // And benchmark the change by deleting the get_component_state calls
             let state = self.components.step_with(key, resume_with);
