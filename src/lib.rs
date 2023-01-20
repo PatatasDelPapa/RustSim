@@ -11,7 +11,7 @@ use std::{ops::Generator, time::Duration};
 pub use keys::Key;
 pub use simulation::Simulation;
 
-pub type GenBoxed<R> = Box<dyn Generator<R, Yield = Action, Return = ()> + Unpin>;
+pub type GenBoxed<R, C = ()> = Box<dyn Generator<R, Yield = Action, Return = C> + Unpin>;
 
 // Action Define que acción realiza la simulación
 // Este enum es devuelto tras ejecutar un step de los generadores
@@ -21,6 +21,7 @@ pub enum Action {
     Passivate,
     ActivateOne(Key),
     ActivateMany(Vec<Key>),
+    Cancel(Key),
 }
 
 impl Action {

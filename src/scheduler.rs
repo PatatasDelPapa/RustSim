@@ -9,18 +9,18 @@ use std::time::Duration;
 #[derive(Clone, Debug)]
 pub struct EventEntry {
     time: Reverse<Duration>,
-    component: Key,
+    entity_key: Key,
 }
 
 impl EventEntry {
-    pub(crate) fn new(time: Duration, component: Key) -> Self {
+    pub(crate) fn new(time: Duration, entity_key: Key) -> Self {
         Self {
             time: Reverse(time),
-            component,
+            entity_key,
         }
     }
-    pub(crate) fn key(&self) -> Key {
-        self.component
+    pub fn key(&self) -> Key {
+        self.entity_key
     }
 }
 
@@ -66,7 +66,7 @@ impl ClockRef {
 
 #[derive(Debug)]
 pub struct Scheduler {
-    events: BinaryHeap<EventEntry>,
+    pub(crate) events: BinaryHeap<EventEntry>,
     clock: Clock,
 }
 
@@ -80,22 +80,28 @@ impl Default for Scheduler {
 }
 
 impl Scheduler {
-    /// Schedules `event` to be executed for `component` at `self.time() + time`.
+    /// Schedules `event` to be executed for `entity` at `self.time() + time`.
     ///
-    /// `component` is a [`Key`](crate::key::Key) corresponding to the [Component](crate::component::Component) to be scheduled.
-    /// `resume_with` is a [`StateKey`](crate::key::StateKey) used access the list of permited components to be Activated by the `component`
-    pub fn schedule(&mut self, time: Duration, component: Key) {
+    /// `entity_key` is a [`Key`](crate::keys::Key) corresponding to the [Generator](crate::GenBoxed) to be scheduled.
+    /// 
+    /// If `entity_key` was already scheduled it will ignore the following calls
+    pub fn schedule(&mut self, time: Duration, entity_key: Key) {
+        let already_inserted = self.events.iter().any(|ev_entry| ev_entry.entity_key == entity_key);
+        if already_inserted {
+            return;
+        }
         let time = self.time() + time;
-        let event = EventEntry::new(time, component);
+        let event = EventEntry::new(time, entity_key);
         self.events.push(event);
     }
 
-    /// Schedules `event` to be executed for `component` at `self.time()`.
+    /// Schedules `event` to be executed for `entity` at `self.time()`.
     ///
-    /// `component` is a [`Key`](crate::key::Key) corresponding to the [Component](crate::component::Component) to be scheduled.
-    /// `resume_with` is a [`StateKey`](crate::key::StateKey) used access the list of permited components to be Activated by the `component`
-    pub fn schedule_now(&mut self, component: Key) {
-        self.schedule(Duration::ZERO, component);
+    /// `entity` is a [`Key`](crate::key::Key) corresponding to the [Generator](crate::GenBoxed) to be scheduled.
+    /// 
+    /// If `entity_key` was already scheduled it will ignore the following calls
+    pub fn schedule_now(&mut self, entity: Key) {
+        self.schedule(Duration::ZERO, entity);
     }
 
     /// Returns the current simulation time.
@@ -119,16 +125,7 @@ impl Scheduler {
             event
         })
     }
-
-    // Utility function used to give each EventEntry an unique id
-    // to break of ties based on the orden of insertion
-    // the earliest to be inserted is the first to get out
-    // if both EventEntry has the same time.
-    // fn get_new_id(&mut self) -> Reverse<u128> {
-    //     self.next_id += 1;
-    //     Reverse(self.next_id)
-    // }
-
+    
     // Private function to insert `EventEntry` for testing.
     // Not used in public API
     #[allow(dead_code)]
@@ -144,120 +141,138 @@ mod test {
 
     #[test]
     fn clock_ref_update() {
-        let time = Duration::from_secs(1);
+        let mut time = Duration::from_secs(1);
         let clock = Clock::new(Cell::new(time));
         let clock_ref = ClockRef::from(clock.clone());
         assert_eq!(clock_ref.time(), time);
-        let time = time + Duration::from_secs(5);
+        time += Duration::from_secs(5);
         clock.set(time);
         assert_eq!(clock_ref.time(), time);
     }
 
-    // #[test]
-    // fn test_event_entry_debug() {
-    //     let entry = EventEntry {
-    //         time: Reverse(Duration::from_secs(1)),
-    //         component: Key::new_unchecked(2),
-    //     };
-    //     assert_eq!(
-    //         &format!("{:?}", entry),
-    //         "EventEntry { time: Reverse(1s), component: Key { id: 2 } }"
-    //     );
-    // }
-
     #[test]
     fn event_entry_cmp() {
-        let make_entry = || -> EventEntry {
-            EventEntry {
-                time: Reverse(Duration::from_secs(1)),
-                component: Key::new(2),
-            }
-        };
         assert_eq!(
             EventEntry {
                 time: Reverse(Duration::from_secs(1)),
-                ..make_entry()
+                entity_key: Key::new(2)
             },
             EventEntry {
                 time: Reverse(Duration::from_secs(1)),
-                ..make_entry()
+                entity_key: Key::new(2)
             }
         );
         assert_eq!(
             EventEntry {
                 time: Reverse(Duration::from_secs(0)),
-                ..make_entry()
+                entity_key: Key::new(2)
             }
             .cmp(&EventEntry {
                 time: Reverse(Duration::from_secs(1)),
-                ..make_entry()
+                entity_key: Key::new(2)
             }),
             Ordering::Greater
         );
         assert_eq!(
             EventEntry {
                 time: Reverse(Duration::from_secs(2)),
-                ..make_entry()
+                entity_key: Key::new(2)
             }
             .cmp(&EventEntry {
                 time: Reverse(Duration::from_secs(1)),
-                ..make_entry()
+                entity_key: Key::new(2)
             }),
             Ordering::Less
         );
     }
 
+    // #[test]
+    // fn scheduler_and_event_entry() {
+    //     let mut scheduler = Scheduler::default();
+    //     let clock_ref = scheduler.clock();
+    //     let mut key_id = 0;
+    //     let mut make_event_entry = |x: u64| -> EventEntry {
+    //         key_id += 1;
+    //         EventEntry {
+    //             time: Reverse(Duration::from_secs(x) + clock.time()),
+    //             entity_key: Key::new(key_id),
+    //         }
+    //     };
+    //     let event_1 = make_event_entry(1); // Output order:
+    //     let event_2 = make_event_entry(8); // event_1 -> event_3 -> event_2;
+    //     let event_3 = make_event_entry(4); // Simulation Time after executing these 3 events: 8 sec.
+
+    //     let (c_event_1, c_event_2, c_event_3) = (event_1.clone(), event_2.clone(), event_3.clone());
+    //     scheduler.insert(event_1);
+    //     scheduler.insert(event_2);
+    //     scheduler.insert(event_3);
+
+    //     assert_eq!(Duration::ZERO, scheduler.time()); // Assert that inserting events will not advance the simulation time.
+
+    //     let r_event = scheduler.pop(); // Extract the event closer to the actual simulation time.
+    //     assert_eq!(Some(c_event_1), r_event); // Assert that the extracted event is event_1.
+    //     assert_eq!(Duration::from_secs(1), scheduler.time()); // The simulation time advance to when the event was scheduled.
+    //                                                           //
+    //     let r_event = scheduler.pop(); // Do the same for the other events.
+    //     assert_eq!(Some(c_event_3), r_event);
+    //     assert_eq!(Duration::from_secs(4), scheduler.time());
+
+    //     let r_event = scheduler.pop();
+    //     assert_eq!(Duration::from_secs(8), scheduler.time());
+    //     assert_eq!(Some(c_event_2), r_event);
+
+    //     let r_event = scheduler.pop();
+    //     assert_eq!(None, r_event); // All events were extracted no more events remains in the Scheduler.
+    //     assert_eq!(Duration::from_secs(8), scheduler.time()); // Actual Simulation Time: 8 sec.
+
+    //     let event_4 = make_event_entry(10); // Schedule in Simulation Time + 10 sec.
+    //     let event_5 = make_event_entry(2); // Schedule in Simulation Time + 2 seg.
+    //     let (c_event_4, c_event_5) = (event_4.clone(), event_5.clone());
+
+    //     scheduler.insert(event_4); // Output order: event_5 -> event_4
+    //     scheduler.insert(event_5); // Simulation Time after extracting these 2 events: 18 sec.
+    //                                //
+    //     let r_event = scheduler.pop(); // Extract the inserted events
+    //     assert_eq!(Some(c_event_5), r_event); // The closer one is extracted first no mather if it was inserted later.
+    //     assert_eq!(Duration::from_secs(10), scheduler.time()); // The simulation time is replaced by Simulation Time + Event Time
+    //                                                            // i.e Simulation Time = 8 secs + 2 secs;
+    //     let r_event = scheduler.pop();
+    //     assert_eq!(Some(c_event_4), r_event);
+    //     assert_eq!(Duration::from_secs(18), scheduler.time());
+    // }
+
     #[test]
     fn scheduler_and_event_entry() {
         let mut scheduler = Scheduler::default();
-        let mut key_id = 1;
-        let mut make_event_entry = |x: u64, time: Duration| -> EventEntry {
+        let clock_ref = scheduler.clock();
+        let mut key_id = 0;
+        let mut make_event_entry = |x: u64| -> EventEntry {
             key_id += 1;
             EventEntry {
-                time: Reverse(Duration::from_secs(x) + time),
-                component: Key::new(key_id),
+                time: Reverse(Duration::from_secs(x) + clock.time()),
+                entity_key: Key::new(key_id),
             }
         };
-        let event_1 = make_event_entry(1, scheduler.time()); // Output order:
-        let event_2 = make_event_entry(8, scheduler.time()); // event_1 -> event_3 -> event_2;
-        let event_3 = make_event_entry(4, scheduler.time()); // Simulation Time after executing these 3 events: 8 sec.
+        let event_1 = make_event_entry(4); // Output order:
+        let event_2 = make_event_entry(1); // event_2 -> event_1;
+        // Simulation Time after executing these 3 events: 4 sec.
 
-        let (c_event_1, c_event_2, c_event_3) = (event_1.clone(), event_2.clone(), event_3.clone());
+        let (c_event_1, c_event_2) = (event_1.clone(), event_2.clone());
         scheduler.insert(event_1);
         scheduler.insert(event_2);
-        scheduler.insert(event_3);
 
         assert_eq!(Duration::ZERO, scheduler.time()); // Assert that inserting events will not advance the simulation time.
 
         let r_event = scheduler.pop(); // Extract the event closer to the actual simulation time.
-        assert_eq!(Some(c_event_1), r_event); // Assert that the extracted event is event_1.
+        assert_eq!(Some(c_event_2), r_event); // Assert that the extracted event is event_1.
         assert_eq!(Duration::from_secs(1), scheduler.time()); // The simulation time advance to when the event was scheduled.
                                                               //
         let r_event = scheduler.pop(); // Do the same for the other events.
-        assert_eq!(Some(c_event_3), r_event);
+        assert_eq!(Some(c_event_1), r_event);
         assert_eq!(Duration::from_secs(4), scheduler.time());
 
         let r_event = scheduler.pop();
-        assert_eq!(Duration::from_secs(8), scheduler.time());
-        assert_eq!(Some(c_event_2), r_event);
-
-        let r_event = scheduler.pop();
         assert_eq!(None, r_event); // All events were extracted no more events remains in the Scheduler.
-        assert_eq!(Duration::from_secs(8), scheduler.time()); // Actual Simulation Time: 8 sec.
-
-        let event_4 = make_event_entry(10, scheduler.time()); // Schedule in Simulation Time + 10 sec.
-        let event_5 = make_event_entry(2, scheduler.time()); // Schedule in Simulation Time + 2 seg.
-        let (c_event_4, c_event_5) = (event_4.clone(), event_5.clone());
-
-        scheduler.insert(event_4); // Output order: event_5 -> event_4
-        scheduler.insert(event_5); // Simulation Time after extracting these 2 events: 18 sec.
-                                   //
-        let r_event = scheduler.pop(); // Extract the inserted events
-        assert_eq!(Some(c_event_5), r_event); // The closer one is extracted first no mather if it was inserted later.
-        assert_eq!(Duration::from_secs(10), scheduler.time()); // The simulation time is replaced by Simulation Time + Event Time
-                                                               // i.e Simulation Time = 8 secs + 2 secs;
-        let r_event = scheduler.pop();
-        assert_eq!(Some(c_event_4), r_event);
-        assert_eq!(Duration::from_secs(18), scheduler.time());
+        assert_eq!(Duration::from_secs(4), scheduler.time()); // Actual Simulation Time: 8 sec.
     }
 }

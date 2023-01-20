@@ -1,6 +1,5 @@
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Key {
-    // ID 0 and 1 are reserved for no_component and end_simulation.
     pub(crate) id: usize,
 }
 
@@ -11,7 +10,7 @@ impl Key {
     }
 
     #[must_use]
-    /// Return the ID of the component this key correspond
+    /// Return the ID of the entity this key correspond
     pub fn id(self) -> usize {
         self.id
     }
