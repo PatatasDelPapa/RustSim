@@ -249,30 +249,29 @@ mod test {
         let mut make_event_entry = |x: u64| -> EventEntry {
             key_id += 1;
             EventEntry {
-                time: Reverse(Duration::from_secs(x) + clock.time()),
+                time: Reverse(Duration::from_secs(x) + clock_ref.time()),
                 entity_key: Key::new(key_id),
             }
         };
-        let event_1 = make_event_entry(4); // Output order:
-        let event_2 = make_event_entry(1); // event_2 -> event_1;
-        // Simulation Time after executing these 3 events: 4 sec.
+        let event_1 = make_event_entry(4); 
+        let event_2 = make_event_entry(1);
 
         let (c_event_1, c_event_2) = (event_1.clone(), event_2.clone());
         scheduler.insert(event_1);
         scheduler.insert(event_2);
 
-        assert_eq!(Duration::ZERO, scheduler.time()); // Assert that inserting events will not advance the simulation time.
+        assert_eq!(Duration::ZERO, scheduler.time());
 
-        let r_event = scheduler.pop(); // Extract the event closer to the actual simulation time.
-        assert_eq!(Some(c_event_2), r_event); // Assert that the extracted event is event_1.
-        assert_eq!(Duration::from_secs(1), scheduler.time()); // The simulation time advance to when the event was scheduled.
-                                                              //
-        let r_event = scheduler.pop(); // Do the same for the other events.
+        let r_event = scheduler.pop();
+        assert_eq!(Some(c_event_2), r_event);
+        assert_eq!(Duration::from_secs(1), scheduler.time());
+
+        let r_event = scheduler.pop();
         assert_eq!(Some(c_event_1), r_event);
         assert_eq!(Duration::from_secs(4), scheduler.time());
 
         let r_event = scheduler.pop();
-        assert_eq!(None, r_event); // All events were extracted no more events remains in the Scheduler.
-        assert_eq!(Duration::from_secs(4), scheduler.time()); // Actual Simulation Time: 8 sec.
+        assert_eq!(None, r_event); 
+        assert_eq!(Duration::from_secs(4), scheduler.time()); 
     }
 }
