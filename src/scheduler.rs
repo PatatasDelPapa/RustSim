@@ -125,7 +125,16 @@ impl Scheduler {
             event
         })
     }
-    
+
+    pub fn remove(&mut self, key: Key) -> bool {
+        if !self.events.iter().any(|event_entry| event_entry.key() == key) { return false };
+        let mut events = std::mem::take(&mut self.events).into_vec();
+        events.retain(|event_entry| event_entry.key() != key);
+        let events = BinaryHeap::from(events);
+        self.events = events;
+        true
+    }
+
     // Private function to insert `EventEntry` for testing.
     // Not used in public API
     #[allow(dead_code)]

@@ -92,7 +92,7 @@ where
         self.inner
             .get(key.id)
             .and_then(Option::as_ref)
-            .map(|&(_, ref state)| state)
+            .map(|(_, state)| state)
     }
 
     #[must_use]

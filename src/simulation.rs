@@ -4,7 +4,6 @@ use std::time::Duration;
 use crate::container::{Container, EntityState};
 use crate::scheduler::Scheduler;
 use crate::{Action, GenBoxed, Key};
-use std::collections::BinaryHeap;
 
 pub struct Simulation<R> {
     scheduler: Scheduler,
@@ -185,16 +184,10 @@ where
 
                             // TODO: Maybe remove this check because if it passed the previous check then an event is guaranteed to exist in the scheduler
                             // ---------------
-                            if !self.scheduler.events.iter().any(|event_entry| event_entry.key() == other_key) {
+                            if !self.scheduler.remove(other_key) {
                                 panic!("Entity ID = {} send Cancel to ID = {} and it wasn't scheduled", key.id, other_key.id);
                             };
                             // ---------------
-
-                            let mut events = std::mem::take(&mut self.scheduler.events).into_vec();
-                            events.retain(|event_entry| event_entry.key() != other_key);
-                            let events = BinaryHeap::from(events);
-                            self.scheduler.events = events;
-                            
                         }
                     }
                 }
