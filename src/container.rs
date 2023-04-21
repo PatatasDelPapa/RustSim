@@ -82,7 +82,7 @@ where
     }
 
     #[must_use]
-    pub fn get_state(&self, key: Key) -> Option<&EntityState> {
+    pub fn entity_state(&self, key: Key) -> Option<&EntityState> {
         // if let Some(values) = self.inner.get(key.id) {
         //     values.as_ref().map(|(_, ref state)| state)
         // } else {
@@ -96,7 +96,7 @@ where
     }
 
     #[must_use]
-    pub fn get_state_mut(&mut self, key: Key) -> Option<&mut EntityState> {
+    pub fn entity_state_mut(&mut self, key: Key) -> Option<&mut EntityState> {
         // if let Some(value) = self.inner.get_mut(key.id) {
         //     value.as_mut().map(|&mut (_, ref mut state)| state)
         // } else {

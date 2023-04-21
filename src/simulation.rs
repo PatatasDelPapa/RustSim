@@ -1,13 +1,17 @@
+use std::cell::Cell;
 use std::ops::GeneratorState;
+use std::rc::Rc;
 use std::time::Duration;
 
 use crate::container::{Container, EntityState};
 use crate::scheduler::Scheduler;
+use crate::state::State;
 use crate::{Action, GenBoxed, Key};
 
 pub struct Simulation<R> {
     scheduler: Scheduler,
     entities: Container<R>,
+    state: Rc<Cell<State>>,
 }
 
 pub enum ShouldContinue {
@@ -23,6 +27,7 @@ where
         Self {
             scheduler: Scheduler::default(),
             entities: Container::default(),
+            state: Rc::new(Cell::new(State::default()))
         }
     }
 }
@@ -72,8 +77,8 @@ where
 
     /// Retrieve a copy of the current [EntityState] of the generator asociated with `key`
     #[must_use]
-    pub fn get_entity_state(&self, key: Key) -> Option<EntityState> {
-        self.entities.get_state(key).copied()
+    pub fn entity_state(&self, key: Key) -> Option<EntityState> {
+        self.entities.entity_state(key).copied()
     }
 
     /// Advance the simulation one event.
@@ -84,7 +89,7 @@ where
             let state = self.entities.step_with(key, resume_with);
             match state {
                 GeneratorState::Yielded(action) => {
-                    let entity_state = self.entities.get_state_mut(key).unwrap();
+                    let entity_state = self.entities.entity_state_mut(key).unwrap();
                     match action {
                         Action::Hold(duration) => {
                             // TODO: Maybe remove this check. It shouldn't happen.
@@ -119,7 +124,7 @@ where
                             }
                             self.schedule_now(key);
 
-                            let other_state = self.entities.get_state_mut(other_key).unwrap();
+                            let other_state = self.entities.entity_state_mut(other_key).unwrap();
                             match *other_state {
                                 EntityState::Passive => {
                                     *other_state = EntityState::Active;
@@ -141,7 +146,7 @@ where
                             }
                             self.schedule_now(key);
                             for other_key in other_keys {
-                                let other_state = self.entities.get_state_mut(other_key).unwrap();
+                                let other_state = self.entities.entity_state_mut(other_key).unwrap();
                                 match *other_state {
                                     EntityState::Passive => {
                                         *other_state = EntityState::Active;
@@ -167,7 +172,7 @@ where
                             self.schedule_now(key);
                             
                             // -----------------------------------
-                            let other_state = self.entities.get_state_mut(other_key).unwrap();
+                            let other_state = self.entities.entity_state_mut(other_key).unwrap();
                             match *other_state {
                                 EntityState::Active => {
                                     *other_state = EntityState::Passive;
@@ -199,6 +204,10 @@ where
         } else {
             ShouldContinue::Break
         }
+    }
+
+    pub fn state(&self) -> Rc<Cell<State>> {
+        Rc::clone(&self.state)
     }
 }
 
