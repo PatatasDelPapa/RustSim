@@ -10,7 +10,8 @@ mod state;
 use std::{ops::Generator, time::Duration};
 
 pub use keys::Key;
-pub use simulation::Simulation;
+pub use simulation::{Simulation, ShouldContinue};
+pub use state::{State, StateKey};
 
 pub type GenBoxed<R, C = ()> = Box<dyn Generator<R, Yield = Action, Return = C> + Unpin>;
 
