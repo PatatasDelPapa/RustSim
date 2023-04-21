@@ -1,5 +1,5 @@
 [package]
-name = "simulator_nightly"
+name = "rustsim"
 version = "0.1.0"
 edition = "2021"
 
