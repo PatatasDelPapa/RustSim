@@ -1,5 +1,5 @@
 use std::cell::Cell;
-use std::ops::GeneratorState;
+use std::ops::CoroutineState;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -88,7 +88,7 @@ where
 
             let state = self.entities.step_with(key, resume_with);
             match state {
-                GeneratorState::Yielded(action) => {
+                CoroutineState::Yielded(action) => {
                     let entity_state = self.entities.get_state_mut(key).unwrap();
                     match action {
                         Action::Hold(duration) => {
@@ -196,7 +196,7 @@ where
                         }
                     }
                 }
-                GeneratorState::Complete(_) => {
+                CoroutineState::Complete(_) => {
                     self.entities.remove(key);
                 }
             }

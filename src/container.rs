@@ -1,5 +1,5 @@
 use crate::{keys::Key, Action, GenBoxed};
-use std::ops::GeneratorState;
+use std::ops::CoroutineState;
 use std::pin::Pin;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,7 +65,7 @@ where
     ///
     /// Panics when the key used was for an already extracted generator
     /// or if the generator has already completed its execution.
-    pub fn step_with(&mut self, key: Key, resume_with: R) -> GeneratorState<Action, ()> {
+    pub fn step_with(&mut self, key: Key, resume_with: R) -> CoroutineState<Action, ()> {
         // Esto asume que los eventos nunca son borrados.
         // TODO: Confirmar esta asumpción.
 
@@ -112,7 +112,7 @@ where
 
 impl Container<()> {
     #[allow(dead_code)]
-    pub fn step(&mut self, key: Key) -> GeneratorState<Action, ()> {
+    pub fn step(&mut self, key: Key) -> CoroutineState<Action, ()> {
         self.step_with(key, ())
     }
 }
@@ -201,7 +201,7 @@ mod test {
         // Using the finite function because if infinite was used in its place this test would never end.
         let finite_key = container.add_generator(finite("A", 3));
         
-        while let GeneratorState::Yielded(_) = container.step_with(finite_key, ()) {}
+        while let CoroutineState::Yielded(_) = container.step_with(finite_key, ()) {}
 
         // Uncommenting the following line will cause the test to fail.
         // container.step_with(finite_key, ());

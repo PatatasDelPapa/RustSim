@@ -1,4 +1,4 @@
-#![feature(generators)] 
+#![feature(coroutines)] 
 
 // Structs from the standard library
 use std::{rc::Rc, cell::Cell, time::Duration};

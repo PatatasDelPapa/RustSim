@@ -1,4 +1,4 @@
-#![feature(generators, generator_trait)]
+#![feature(coroutines, coroutine_trait)]
 // use std::cell::Cell;
 
 mod container;
@@ -7,13 +7,13 @@ mod scheduler;
 mod simulation;
 mod state;
 
-use std::{ops::Generator, time::Duration};
+use std::{ops::Coroutine, time::Duration};
 
 pub use keys::Key;
 pub use simulation::{Simulation, ShouldContinue};
 pub use state::{State, StateKey};
 
-pub type GenBoxed<R, C = ()> = Box<dyn Generator<R, Yield = Action, Return = C> + Unpin>;
+pub type GenBoxed<R, C = ()> = Box<dyn Coroutine<R, Yield = Action, Return = C> + Unpin>;
 
 // Action Define que acción realiza la simulación
 // Este enum es devuelto tras ejecutar un step de los generadores
